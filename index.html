@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>墨桥 · AI 内容转 Obsidian</title>
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script src="conversion.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand"><img class="brand-mark" src="favicon.png" alt=""><div><strong>墨桥</strong><small>INK BRIDGE</small></div></div>
+      <div class="side-label">工作台</div>
+      <div class="side-active"><span class="side-icon">✧</span> 内容转换 <span class="side-dot"></span></div>
+      <div class="side-bottom"><div class="privacy-icon">◇</div><div><strong>你的内容，只在本地</strong><p>转换在当前设备上完成<br>不会上传你的对话</p></div></div>
+    </aside>
+    <main class="main">
+      <header class="topbar"><div class="breadcrumb">工作台 <span>/</span> 内容转换</div><div class="top-tag"><span></span> 本地处理</div></header>
+      <div class="content">
+        <section class="intro">
+          <div><div class="eyebrow"><span></span> AI → OBSIDIAN</div><h1>让灵感，顺利落笔<span>。</span></h1><p>粘贴 AI 对话内容，自动整理公式和表格，轻松放进你的知识库。</p></div>
+          <div class="intro-art" aria-hidden="true"><span class="art-spark">✦</span><span class="art-formula">ƒ <i>→</i> $</span><span class="art-line"></span></div>
+        </section>
+        <section class="workspace" aria-label="内容转换工作区">
+          <div class="workspace-head"><div><span class="section-num">01</span><h2>开始转换</h2><p>在左侧粘贴内容，右侧会自动生成结果。</p></div><button class="text-button" id="sampleBtn" type="button">试试示例 <span>↗</span></button></div>
+          <div class="panels">
+            <div class="editor-panel input-panel">
+              <div class="panel-header"><div class="panel-title"><span class="panel-symbol">↓</span><div><h3>原始内容</h3><p>从 AI 对话中复制</p></div></div><button class="secondary-button" id="pasteBtn" type="button">粘贴内容</button></div>
+              <label class="sr-only" for="input">原始内容</label>
+              <textarea id="input" spellcheck="false" placeholder="在这里粘贴你的 AI 对话内容…&#10;&#10;文字、公式和表格都可以放在这里。"></textarea>
+              <div class="panel-footer"><span><span id="inputCount">0</span> 字符</span><button class="quiet-button" id="clearBtn" type="button">清空</button></div>
+            </div>
+            <div class="flow-arrow" aria-hidden="true">→</div>
+            <div class="editor-panel output-panel">
+              <div class="panel-header"><div class="panel-title"><span class="panel-symbol purple">✧</span><div><h3>Obsidian 内容</h3><p>转换结果可直接编辑</p></div></div><span class="ready-label"><span></span> 自动转换</span></div>
+              <label class="sr-only" for="output">转换后的 Obsidian 内容</label>
+              <textarea id="output" spellcheck="false" placeholder="转换后的内容会显示在这里…"></textarea>
+              <div class="panel-footer"><span><span id="outputCount">0</span> 字符</span><span id="status" aria-live="polite">等待输入</span></div>
+            </div>
+          </div>
+          <div class="action-row"><p><span class="tip-icon">i</span> 公式效果取决于复制时保留的原始内容，请粘贴到 Obsidian 后检查。</p><div class="actions"><button class="secondary-button download-button" id="downloadBtn" type="button"><span>↓</span> 下载 Markdown</button><button class="primary-button" id="copyBtn" type="button"><span>▢</span> 复制结果</button></div></div>
+        </section>
+        <div class="shortcut-note"><span class="shortcut-icon">⌨</span><div><strong>快捷键复制</strong><p>启动文件夹里的后台工具后，选中内容按 <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>C</kbd>，再到 Obsidian 按 <kbd>Ctrl</kbd> + <kbd>V</kbd> 粘贴。</p></div></div>
+        <div class="bottom-notes"><div><span>✳</span><p><strong>公式更整齐</strong><small>整理常见的数学公式格式</small></p></div><div><span>▦</span><p><strong>表格更清晰</strong><small>保留适合笔记的 Markdown 表格</small></p></div><div><span>⌁</span><p><strong>专注你的内容</strong><small>无需登录，即贴即用</small></p></div></div>
+        <footer>为你的知识整理，留一点空间。 <span>INK BRIDGE · 墨桥</span></footer>
+      </div>
+    </main>
+  </div>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+</body>
+</html>

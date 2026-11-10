@@ -1,0 +1,3 @@
+生成方式：内置图像生成工具
+
+提示词：Use case: logo-brand. Design one polished app icon for a desktop application named 墨桥 that converts AI text and mathematical formulas into Obsidian notes. Centered single square app icon, in a deep plum / soft lavender palette matching a refined minimal productivity app. Create a clean, distinctive and instantly legible symbol: a flowing curved transformation arrow bridging a simple mathematical spark and a faceted note/diamond, suggesting conversion. Vector-like geometric design, strong silhouette, minimal details, subtle depth, balanced negative space, recognizable at 16–32px. Rounded-square plum tile, isolated on transparent background. No words, no letters, no numbers, no watermark, no mockup, no extra icons.
