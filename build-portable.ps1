@@ -17,10 +17,53 @@ if (!$match.Success) { throw 'Could not extract the hotkey source.' }
 $code = $match.Groups[1].Value
 $code = $code.Replace('p.StartInfo.FileName = "node.exe";', 'p.StartInfo.FileName = Path.Combine(Path.GetDirectoryName(script), "runtime", "node.exe");')
 $code = $code.Replace('var menu = new ContextMenuStrip();', 'var menu = new ContextMenuStrip(); menu.Items.Add("\u6253\u5f00\u8f6c\u6362\u754c\u9762", null, (s,e) => Process.Start(Path.Combine(directory, "index.html")));')
+$code = $code.Replace('tray.ContextMenuStrip = menu;', 'AutoStart.AddMenu(menu); tray.ContextMenuStrip = menu;')
 $entry = @'
+public static class AutoStart {
+  const string RunKey = @"Software\Microsoft\Windows\CurrentVersion\Run";
+  const string PrefKey = @"Software\InkBridge";
+  const string Name = "InkBridge";
+  static ToolStripMenuItem menuItem;
+  static bool EnabledPreference() {
+    using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(PrefKey))
+      return key == null || !String.Equals(key.GetValue("AutoStart") as string, "disabled", StringComparison.OrdinalIgnoreCase);
+  }
+  static void WriteRun() {
+    string path = Process.GetCurrentProcess().MainModule.FileName;
+    using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKey))
+      key.SetValue(Name, "\"" + path + "\" --background", Microsoft.Win32.RegistryValueKind.String);
+  }
+  static void Warn() { MessageBox.Show("\u65e0\u6cd5\u66f4\u6539\u5f00\u673a\u81ea\u542f\u8bbe\u7f6e\u3002\u58a8\u6865\u4ecd\u53ef\u6b63\u5e38\u8fd0\u884c\u3002", "\u58a8\u6865"); }
+  static bool IsRegistered() {
+    using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(RunKey))
+      return EnabledPreference() && key != null && key.GetValue(Name) is string;
+  }
+  public static void Initialise() {
+    try { if (EnabledPreference()) WriteRun(); if (menuItem != null) menuItem.Checked = IsRegistered(); }
+    catch (Exception) { Warn(); }
+  }
+  public static void AddMenu(ContextMenuStrip menu) {
+    bool enabled;
+    try { enabled = IsRegistered(); } catch (Exception) { enabled = false; }
+    var item = new ToolStripMenuItem("\u5f00\u673a\u81ea\u542f") { Checked = enabled, CheckOnClick = false };
+    menuItem = item;
+    item.Click += (s, e) => {
+      try {
+        bool next = !item.Checked;
+        if (next) WriteRun();
+        else using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(RunKey)) key.DeleteValue(Name, false);
+        using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(PrefKey))
+          key.SetValue("AutoStart", next ? "enabled" : "disabled", Microsoft.Win32.RegistryValueKind.String);
+        item.Checked = next;
+      } catch (Exception) { Warn(); }
+    };
+    menu.Items.Add(item);
+  }
+}
 public static class Program {
   [STAThread] public static int Main(string[] args) {
     string dir = AppDomain.CurrentDomain.BaseDirectory;
+    bool background = Array.IndexOf(args, "--background") >= 0;
     if (args.Length > 0 && args[0] == "--self-test") {
       var info = new ProcessStartInfo(Path.Combine(dir, "runtime", "node.exe"), "\"" + Path.Combine(dir, "conversion.test.js") + "\"");
       info.UseShellExecute = false; info.CreateNoWindow = true;
@@ -28,11 +71,19 @@ public static class Program {
     }
     bool created;
     using (var mutex = new Mutex(true, "InkBridgeHotkey", out created)) {
-      if (!created) { MessageBox.Show("\u58a8\u6865\u5df2\u5728\u8fd0\u884c\u3002\u8bf7\u4ece\u4efb\u52a1\u680f\u901a\u77e5\u533a\u6253\u5f00\u6216\u9000\u51fa\u65e7\u7248\u540e\u518d\u8bd5\u3002", "\u58a8\u6865"); return 1; }
+      if (!created) {
+        if (!background) {
+          try { Process.Start(Path.Combine(dir, "index.html")); } catch { MessageBox.Show("\u65e0\u6cd5\u6253\u5f00\u754c\u9762\uff0c\u8bf7\u624b\u52a8\u6253\u5f00 index.html\u3002", "\u58a8\u6865"); }
+        }
+        return 0;
+      }
       try {
         using (var app = new InkBridgeHotkey(dir)) {
           if (!app.Ready) return 1;
-          try { Process.Start(Path.Combine(dir, "index.html")); } catch { MessageBox.Show("\u65e0\u6cd5\u6253\u5f00\u754c\u9762\uff0c\u8bf7\u624b\u52a8\u6253\u5f00 index.html\u3002", "\u58a8\u6865"); }
+          AutoStart.Initialise();
+          if (!background) {
+            try { Process.Start(Path.Combine(dir, "index.html")); } catch { MessageBox.Show("\u65e0\u6cd5\u6253\u5f00\u754c\u9762\uff0c\u8bf7\u624b\u52a8\u6253\u5f00 index.html\u3002", "\u58a8\u6865"); }
+          }
           Application.Run();
         }
       } finally { mutex.ReleaseMutex(); }
