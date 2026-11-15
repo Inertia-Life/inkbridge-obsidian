@@ -2,6 +2,8 @@
 
 把 AI 对话中的文字、公式和表格整理成适合 Obsidian 的 Markdown。选中内容后按一次快捷键，转换完成后即可粘贴；也可以在转换页面预览、编辑和下载结果。
 
+**[访问墨桥介绍与下载页面](https://inertia-life.github.io/inkbridge-obsidian/)**
+
 ![墨桥转换页面](docs/screenshot.png)
 
 ## 功能
