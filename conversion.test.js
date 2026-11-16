@@ -24,4 +24,9 @@ assert.equal(convertHtml('<table><tr><th>变量</th><th>公式</th></tr><tr><td>
 assert.equal(convertHtml('<p>理想目标：</p><pre><code>$$f^* = \\arg\\min_{f \\in \\mathcal{F}} R(f)$$</code></pre><p>找到假设空间 <span class="katex"><math><semantics><annotation encoding="application/x-tex">\\mathcal{F}</annotation></semantics></math></span> 中期望风险最小的模型。</p><p>实际能做到的：</p><pre><code>$$\\widehat{f} = \\arg\\min_{f \\in \\mathcal{F}} \\widehat{R}_D(f)$$</code></pre>', ''), mathExpected.replace('模型。\n实际', '模型。\n\n实际'));
 assert.equal(convertHtml('<pre><code class="language-javascript">$$x$$</code></pre>', ''), '```javascript\n$$x$$\n```');
 assert.equal(convertHtml('<pre><code>const x = 1;</code></pre>', ''), '```\nconst x = 1;\n```');
+assert.equal(convertHtml('<p>图示：</p><img src="https://example.com/图.png" alt="示例"><p>公式 \\(x^2\\)</p>', ''), '图示：\n\n![示例](<https://example.com/图.png>)\n\n公式 $x^2$');
+assert.equal(convertHtml('<img src="https://example.com/chart?q=$x$" alt="图">', ''), '![图](<https://example.com/chart?q=$x$>)');
+assert.equal(convertHtml('<img src="data:image/png;base64,AAAA" alt="截图">', ''), '[截图：图片数据未能提取]');
+assert.equal(convertHtml('<img src="javascript:alert(1)" alt="不安全">', ''), '[不安全：图片数据未能提取]');
+assert.equal(convertHtml('<img src="data:image/png;base64,AAAA" alt="截图">', '', {imageHandler: () => '![[图片.png]]'}), '![[图片.png]]');
 console.log('Conversion tests passed');

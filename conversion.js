@@ -15,6 +15,7 @@
       return protect(match);
     });
     text = text.replace(/(`+)([^\n]*?)\1/g, match => protect(match));
+    text = text.replace(/!\[[^\]\n]*\]\(<[^>\n]*>\)/g, match => protect(match));
     // Obsidian expects display-math delimiters on their own lines.
     text = text.replace(/(?<!\\)\$\$([\s\S]*?)(?<!\\)\$\$/g, (match, math, offset, source) => {
       const start = source.lastIndexOf('\n', offset - 1) + 1;
@@ -33,7 +34,7 @@
     return text.replace(/\u0000(\d+)\u0000/g, (_, i) => protectedParts[Number(i)]).trim();
   }
 
-  function convertHtml(html, fallback) {
+  function convertHtml(html, fallback, options) {
     if (typeof DOMParser === 'undefined') return convertText(fallback || '');
     const source = String(html || '');
     const fragment = source.match(/<!--\s*StartFragment\s*-->([\s\S]*?)<!--\s*EndFragment\s*-->/i);
@@ -85,7 +86,21 @@
       const inside = () => Array.from(node.childNodes).map(n => render(n, depth + 1)).join('');
       if (tag === 'BR') return '\n';
       if (tag === 'HR') return '\n\n---\n\n';
-      if (tag === 'IMG') return node.getAttribute('alt') || '';
+      if (tag === 'IMG') {
+        const alt = (node.getAttribute('alt') || '图片').replace(/[\r\n\[\]]/g, ' ').trim() || '图片';
+        const src = (node.getAttribute('src') || node.getAttribute('data-src') || '').trim();
+        if (options && typeof options.imageHandler === 'function') {
+          const replacement = options.imageHandler({ src, alt });
+          if (typeof replacement === 'string') return replacement;
+        }
+        // Markdown can carry stable web addresses across applications; local
+        // blob/data/file URLs cannot be assumed available in another app.
+        if (/^(https?:)?\/\//i.test(src)) {
+          const url = (src.startsWith('//') ? 'https:' + src : src).replace(/[\s<>]/g, c => encodeURIComponent(c));
+          return '![' + alt + '](<' + url + '>)';
+        }
+        return '[' + alt + '：图片数据未能提取]';
+      }
       if (tag === 'CODE') { const content = node.textContent; const fence = content.includes('`') ? '``' : '`'; return fence + content + fence; }
       if (/^H[1-6]$/.test(tag)) return '\n\n' + '#'.repeat(Number(tag[1])) + ' ' + inside().trim() + '\n\n';
       if (tag === 'STRONG' || tag === 'B') return '**' + inside() + '**';

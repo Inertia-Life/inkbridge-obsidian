@@ -44,6 +44,7 @@ public class InkBridgeHotkey : NativeWindow, IDisposable {
     tray.Icon = customIcon ?? System.Drawing.SystemIcons.Application;
     tray.Text = "\u58a8\u6865\u5feb\u6377\u952e";
     var menu = new ContextMenuStrip();
+    menu.Items.Add("\u9009\u62e9\u56fe\u7247\u4fdd\u5b58\u7684\u4ed3\u5e93", null, (s,e) => ChooseVault(true));
     menu.Items.Add("\u9000\u51fa\u58a8\u6865\u5feb\u6377\u952e", null, (s,e) => Application.Exit());
     tray.ContextMenuStrip = menu;
     timer = new System.Windows.Forms.Timer(); timer.Interval = 100; timer.Tick += Tick;
@@ -77,6 +78,48 @@ public class InkBridgeHotkey : NativeWindow, IDisposable {
     finally { CloseClipboard(); }
   }
   void Tip(string text) { tray.ShowBalloonTip(2500, "\u58a8\u6865", text, ToolTipIcon.Info); }
+  static bool ValidVault(string path) { return !String.IsNullOrEmpty(path) && Directory.Exists(Path.Combine(path, ".obsidian")); }
+  static string ChooseVault(bool force) {
+    using (var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\InkBridge")) {
+      string saved = key == null ? null : key.GetValue("ImageVault") as string;
+      if (!force && ValidVault(saved)) return saved;
+    }
+    var found = new System.Collections.Generic.List<string>();
+    try {
+      string config = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "obsidian", "obsidian.json");
+      var json = new JavaScriptSerializer().DeserializeObject(File.ReadAllText(config)) as System.Collections.Generic.Dictionary<string,object>;
+      var vaults = json["vaults"] as System.Collections.Generic.Dictionary<string,object>;
+      foreach (var value in vaults.Values) {
+        var item = value as System.Collections.Generic.Dictionary<string,object>;
+        object raw; string path = item != null && item.TryGetValue("path", out raw) ? raw as string : null;
+        if (ValidVault(path) && !found.Contains(path)) found.Add(path);
+      }
+    } catch (Exception) { }
+    string selected = !force && found.Count == 1 ? found[0] : null;
+    if (selected == null) {
+      using (var dialog = new FolderBrowserDialog()) {
+        dialog.Description = "\u9009\u62e9 Obsidian \u4ed3\u5e93\u6587\u4ef6\u5939\uff0c\u7528\u4e8e\u4fdd\u5b58\u56fe\u7247";
+        if (dialog.ShowDialog() != DialogResult.OK) return null;
+        selected = dialog.SelectedPath;
+      }
+      if (!ValidVault(selected)) { MessageBox.Show("\u8bf7\u9009\u62e9\u542b .obsidian \u7684 Obsidian \u4ed3\u5e93\u6587\u4ef6\u5939\u3002", "\u58a8\u6865"); return null; }
+    }
+    using (var key = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(@"Software\InkBridge")) key.SetValue("ImageVault", selected);
+    return selected;
+  }
+  string RunConverter(System.Collections.Generic.Dictionary<string,string> data, out string error, out int status) {
+    var serializer = new JavaScriptSerializer(); serializer.MaxJsonLength = Int32.MaxValue;
+    using (var p = new Process()) {
+      p.StartInfo.FileName = "node.exe";
+      p.StartInfo.Arguments = "\"" + script + "\""; p.StartInfo.UseShellExecute = false; p.StartInfo.CreateNoWindow = true;
+      p.StartInfo.RedirectStandardInput = true; p.StartInfo.RedirectStandardOutput = true; p.StartInfo.RedirectStandardError = true;
+      p.StartInfo.StandardOutputEncoding = Encoding.UTF8; p.StartInfo.StandardErrorEncoding = Encoding.UTF8;
+      p.Start(); byte[] bytes = Encoding.UTF8.GetBytes(serializer.Serialize(data));
+      p.StandardInput.BaseStream.Write(bytes, 0, bytes.Length); p.StandardInput.Close();
+      string result = p.StandardOutput.ReadToEnd(); error = p.StandardError.ReadToEnd(); p.WaitForExit(); status = p.ExitCode;
+      return result;
+    }
+  }
   protected override void WndProc(ref Message m) {
     if (m.Msg == WM_HOTKEY && stage == 0) { stage = 1; ticks = 0; timer.Start(); }
     base.WndProc(ref m);
@@ -96,18 +139,22 @@ public class InkBridgeHotkey : NativeWindow, IDisposable {
     try {
       string plain = Clipboard.ContainsText(TextDataFormat.UnicodeText) ? Clipboard.GetText(TextDataFormat.UnicodeText) : "";
       string html = ReadClipboardHtml();
-      if (String.IsNullOrWhiteSpace(plain) && String.IsNullOrWhiteSpace(html)) { Tip("\u6ca1\u6709\u53ef\u8f6c\u6362\u7684\u6587\u672c\u3002"); return; }
-      var serializer = new JavaScriptSerializer(); serializer.MaxJsonLength = Int32.MaxValue;
+      string bitmap = "";
+      if (Clipboard.ContainsImage()) using (var picture = Clipboard.GetImage()) using (var buffer = new MemoryStream()) {
+        if (picture != null) { picture.Save(buffer, System.Drawing.Imaging.ImageFormat.Png); bitmap = Convert.ToBase64String(buffer.ToArray()); }
+      }
+      if (String.IsNullOrWhiteSpace(plain) && String.IsNullOrWhiteSpace(html)) { Tip(bitmap.Length > 0 ? "\u56fe\u7247\u5df2\u590d\u5236\uff0c\u53ef\u76f4\u63a5\u5728 Obsidian \u7c98\u8d34\u3002" : "\u6ca1\u6709\u53ef\u8f6c\u6362\u7684\u6587\u672c\u3002"); return; }
       var data = new System.Collections.Generic.Dictionary<string,string>(); data["text"] = plain; data["html"] = html;
-      var p = new Process(); p.StartInfo.FileName = "node.exe";
-      p.StartInfo.Arguments = "\"" + script + "\""; p.StartInfo.UseShellExecute = false; p.StartInfo.CreateNoWindow = true;
-      p.StartInfo.RedirectStandardInput = true; p.StartInfo.RedirectStandardOutput = true; p.StartInfo.RedirectStandardError = true;
-      p.StartInfo.StandardOutputEncoding = Encoding.UTF8; p.StartInfo.StandardErrorEncoding = Encoding.UTF8;
-      p.Start();
-      byte[] bytes = Encoding.UTF8.GetBytes(serializer.Serialize(data));
-      p.StandardInput.BaseStream.Write(bytes, 0, bytes.Length); p.StandardInput.Close();
-      string result = p.StandardOutput.ReadToEnd(); string error = p.StandardError.ReadToEnd(); p.WaitForExit();
-      if (p.ExitCode != 0 || String.IsNullOrWhiteSpace(result)) throw new Exception(error);
+      data["bitmap"] = bitmap;
+      string error; int status; string result = RunConverter(data, out error, out status);
+      if (status != 0 && error.Contains("INKBRIDGE_NEEDS_VAULT")) {
+        string vault = ChooseVault(false);
+        if (vault == null) { Tip("\u5df2\u4fdd\u7559\u539f\u5185\u5bb9\uff0c\u8bf7\u9009\u62e9\u4ed3\u5e93\u540e\u91cd\u8bd5\u3002"); return; }
+        data["vault"] = vault; result = RunConverter(data, out error, out status);
+      }
+      if (status != 0 && error.Contains("INKBRIDGE_IMAGE_ONLY")) { Tip("\u56fe\u7247\u5df2\u590d\u5236\uff0c\u53ef\u76f4\u63a5\u5728 Obsidian \u7c98\u8d34\u3002"); return; }
+      if (status != 0 && error.Contains("INKBRIDGE_IMAGE_UNAVAILABLE")) { Tip("\u90e8\u5206\u56fe\u7247\u65e0\u6cd5\u83b7\u53d6\uff0c\u5df2\u4fdd\u7559\u539f\u5185\u5bb9\u3002"); return; }
+      if (status != 0 || String.IsNullOrWhiteSpace(result)) throw new Exception(error);
       if (GetClipboardSequenceNumber() != copied) { Tip("\u526a\u8d34\u677f\u5df2\u53d8\u5316\uff0c\u672a\u8986\u76d6\u65b0\u5185\u5bb9\u3002"); return; }
       Clipboard.SetText(result, TextDataFormat.UnicodeText);
       Tip("\u8f6c\u6362\u5b8c\u6210\uff0c\u6309 Ctrl + V \u7c98\u8d34\u3002");
